@@ -48,3 +48,51 @@ Library:
 ### 1. Setup MQTT Broker
 
 Gunakan broker publik:
+
+broker.hivemq.com
+
+broker.hivemq.com
+
+
+---
+
+### 2. Setup MQTT Client (Monitoring)
+
+#### Opsi 1 – Browser (HiveMQ Web Client)
+
+Buka:
+
+https://www.hivemq.com/demos/websocket-client/
+
+Konfigurasi:
+
+- Host: `broker.hivemq.com`
+- Port: `8884`
+- SSL: ON
+- Path: `/mqtt`
+
+Klik **Connect**
+
+---
+
+#### Opsi 2 – MQTT Explorer (Recommended)
+
+Install aplikasi:
+
+MQTT Explorer
+
+Konfigurasi:
+
+- Host: `broker.hivemq.com`
+- Port: `1883`
+
+Klik **Connect**
+
+---
+
+### 3. Subscribe Topic
+
+Gunakan topic:
+
+iot/digitech-adhimas/suhu
+
