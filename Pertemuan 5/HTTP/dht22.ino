@@ -6,12 +6,12 @@
 #define DHTPIN 4
 #define DHTTYPE DHT22
 
-const char* ssid = "<SSID WIFI>";
-const char* password = "<PASSWORD WIFI>";
+const char* ssid = "adhimasHome";
+const char* password = "rahasia1993";
 
 // GANTI IP INI!
-const char* serverUrl = "http://<IP SERVER>:3000/api/suhu";
-const char* pingUrl   = "http://<IP SERVER>:3000";
+const char* serverUrl = "http://10.10.10.90:3000/api/suhu";
+const char* pingUrl   = "http://10.10.10.90:3000";
 
 // ===== INISIALISASI =====
 DHT dht(DHTPIN, DHTTYPE);
