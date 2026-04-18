@@ -6,12 +6,15 @@
 #define DHTPIN 4
 #define DHTTYPE DHT22
 
-const char* ssid = "adhimasHome";
-const char* password = "rahasia1993";
+const char* ssid = "LoremIpsumDolor";
+const char* password = "Tryhackme";
 
 // GANTI IP INI!
-const char* serverUrl = "http://10.10.10.90:3000/api/suhu";
-const char* pingUrl   = "http://10.10.10.90:3000";
+const char* serverUrl = "http://10.39.20.144:3000/api/suhu";
+const char* pingUrl   = "http://10.39.20.144:3000";
+
+// Isi dengan nama Anda (field JSON: nama_anda)
+const char* nama_anda = "Nama Anda";
 
 // ===== INISIALISASI =====
 DHT dht(DHTPIN, DHTTYPE);
@@ -107,7 +110,7 @@ void kirimData(float suhu) {
   http.begin(serverUrl);
   http.addHeader("Content-Type", "application/json");
 
-  String json = "{\"suhu\":" + String(suhu) + "}";
+  String json = "{\"suhu\":" + String(suhu) + ",\"nama_anda\":\"" + String(nama_anda) + "\"}";
 
   int responseCode = http.POST(json);
 

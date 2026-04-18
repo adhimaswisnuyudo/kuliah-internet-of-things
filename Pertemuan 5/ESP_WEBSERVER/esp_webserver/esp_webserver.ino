@@ -1,72 +1,129 @@
 #include <WiFi.h>
-#include <WebServer.h>
+#include <HTTPClient.h>
+#include "DHT.h"
 
-// ===== WIFI =====
-const char* ssid = "adhimasHome";
-const char* password = "rahasia1993";
+// ===== KONFIGURASI =====
+#define DHTPIN 4
+#define DHTTYPE DHT22
 
-// ===== BUZZER =====
-#define BUZZER 4
+const char* ssid = "LoremIpsumDolor";
+const char* password = "Tryhackme";
 
-WebServer server(80);
+// GANTI IP INI!
+const char* serverUrl = "http://10.39.20.144:3000/api/suhu";
+const char* pingUrl   = "http://10.39.20.144:3000";
 
-// ===== HTML PAGE =====
-String page = R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Kontrol Buzzer</title>
-</head>
-<body>
-  <h1>IoT Control</h1>
-  <button onclick="fetch('/on')">NYALAKAN</button>
-  <button onclick="fetch('/off')">MATIKAN</button>
-</body>
-</html>
-)rawliteral";
+// Isi dengan nama Anda (field JSON: nama_anda)
+const char* nama_anda = "Nama Anda";
 
-// ===== HANDLER =====
-void handleRoot() {
-  server.send(200, "text/html", page);
-}
-
-void handleOn() {
-  digitalWrite(BUZZER, HIGH);
-  server.send(200, "text/plain", "Buzzer ON");
-}
-
-void handleOff() {
-  digitalWrite(BUZZER, LOW);
-  server.send(200, "text/plain", "Buzzer OFF");
-}
+// ===== INISIALISASI =====
+DHT dht(DHTPIN, DHTTYPE);
 
 // ===== SETUP =====
 void setup() {
   Serial.begin(115200);
+  delay(1000);
 
-  pinMode(BUZZER, OUTPUT);
+  Serial.println("\n=== START PROGRAM IoT HTTP ===");
 
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting WiFi");
+  dht.begin();
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("\nWiFi Connected!");
-  Serial.print("IP: ");
-  Serial.println(WiFi.localIP());
-
-  // ROUTES
-  server.on("/", handleRoot);
-  server.on("/on", handleOn);
-  server.on("/off", handleOff);
-
-  server.begin();
+  connectWiFi();
+  cekServer();
 }
 
 // ===== LOOP =====
 void loop() {
-  server.handleClient();
+  float suhu = dht.readTemperature();
+
+  if (isnan(suhu)) {
+    Serial.println("❌ Gagal membaca DHT22");
+    delay(2000);
+    return;
+  }
+
+  Serial.print("🌡️ Suhu: ");
+  Serial.println(suhu);
+
+  if (WiFi.status() == WL_CONNECTED) {
+    kirimData(suhu);
+  } else {
+    Serial.println("⚠️ WiFi terputus, reconnect...");
+    connectWiFi();
+  }
+
+  delay(5000);
+}
+
+// ===== FUNGSI WIFI =====
+void connectWiFi() {
+  Serial.println("🔌 Menghubungkan ke WiFi...");
+  WiFi.begin(ssid, password);
+
+  int retry = 0;
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    retry++;
+
+    if (retry > 20) {
+      Serial.println("\n❌ Gagal konek WiFi!");
+      return;
+    }
+  }
+
+  Serial.println("\n✅ WiFi Connected!");
+  Serial.print("IP ESP32: ");
+  Serial.println(WiFi.localIP());
+}
+
+// ===== FUNGSI CEK SERVER =====
+void cekServer() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+
+    Serial.println("🔍 Cek koneksi server...");
+
+    http.begin(pingUrl);
+    int responseCode = http.GET();
+
+    Serial.print("Ping Response: ");
+    Serial.println(responseCode);
+
+    if (responseCode > 0) {
+      Serial.println("✅ Server TERHUBUNG");
+    } else {
+      Serial.println("❌ Server TIDAK TERHUBUNG");
+    }
+
+    http.end();
+  }
+}
+
+// ===== FUNGSI KIRIM DATA =====
+void kirimData(float suhu) {
+  HTTPClient http;
+
+  Serial.println("📡 Mengirim data ke server...");
+
+  http.begin(serverUrl);
+  http.addHeader("Content-Type", "application/json");
+
+  String json = "{\"suhu\":" + String(suhu) + ",\"nama_anda\":\"" + String(nama_anda) + "\"}";
+
+  int responseCode = http.POST(json);
+
+  Serial.print("Response Code: ");
+  Serial.println(responseCode);
+
+  if (responseCode > 0) {
+    String response = http.getString();
+    Serial.println("Response Body:");
+    Serial.println(response);
+  } else {
+    Serial.println("❌ Gagal kirim data!");
+  }
+
+  http.end();
 }

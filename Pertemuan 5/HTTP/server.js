@@ -5,27 +5,55 @@ const port = 3000;
 // Middleware
 app.use(express.json());
 
-// Simpan data sementara
-let dataSensor = {
-  suhu: 0,
-  waktu: ""
-};
+// Simpan data per nama pengirim (key = nama_anda)
+let dataByNama = {};
+
+function snapshotPengirim() {
+  return Object.keys(dataByNama)
+    .sort()
+    .map((k) => {
+      const p = dataByNama[k];
+      return {
+        nama_anda: p.nama_anda,
+        suhu: p.suhu,
+        waktu: p.waktu,
+        riwayat: p.history
+      };
+    });
+}
 
 // Endpoint menerima data dari ESP32
 app.post('/api/suhu', (req, res) => {
-  const { suhu } = req.body;
+  const { suhu, nama_anda } = req.body;
+  const nama =
+    nama_anda != null && String(nama_anda).trim()
+      ? String(nama_anda).trim()
+      : "(tanpa nama)";
+  const waktuStr = new Date().toLocaleTimeString();
+  const nilaiSuhu = Number(suhu);
 
-  dataSensor.suhu = suhu;
-  dataSensor.waktu = new Date().toLocaleTimeString();
+  if (!dataByNama[nama]) {
+    dataByNama[nama] = {
+      nama_anda: nama,
+      suhu: 0,
+      waktu: "",
+      history: []
+    };
+  }
+  const entry = dataByNama[nama];
+  entry.suhu = nilaiSuhu;
+  entry.waktu = waktuStr;
+  entry.history.unshift({ suhu: nilaiSuhu, waktu: waktuStr });
+  entry.history = entry.history.slice(0, 50);
 
-  console.log("Data masuk:", dataSensor);
+  console.log("Data masuk:", nama, entry.suhu, entry.waktu);
 
   res.json({ status: "ok" });
 });
 
-// Endpoint untuk frontend ambil data
+// Endpoint untuk frontend ambil data (multi pengirim)
 app.get('/api/suhu', (req, res) => {
-  res.json(dataSensor);
+  res.json({ pengirim: snapshotPengirim() });
 });
 
 // Halaman web sederhana
@@ -132,12 +160,38 @@ app.get('/', (req, res) => {
             overflow-x: auto;
           }
 
-          #suhuChart {
+          .chart-canvas {
             width: 100%;
             max-width: 100%;
+            min-height: 240px;
             background: rgba(255, 255, 255, 0.02);
             border-radius: 12px;
             border: 1px solid var(--border);
+          }
+
+          #grafik-per-nama {
+            display: contents;
+          }
+
+          .ringkasan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 8px;
+          }
+
+          .pengirim-mini {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+          }
+
+          .pengirim-mini .temp-small {
+            margin: 4px 0;
+            font-size: 26px;
+            font-weight: 800;
+            color: #d9fffe;
           }
 
           #chartInfo {
@@ -192,85 +246,158 @@ app.get('/', (req, res) => {
         <main class="container">
           <header class="header">
             <h1 class="title">IoT Monitoring Dashboard</h1>
-            <p class="subtitle">Pemantauan suhu real-time dari sensor DHT22</p>
+            <p class="subtitle">Pemantauan suhu per pengirim (nama dari ESP32) — grafik terpisah per nama</p>
           </header>
 
           <section class="grid">
-            <article class="card">
-              <p class="label">Suhu Saat Ini</p>
-              <h2 id="suhu" class="temp">-- °C</h2>
-              <p id="waktu" class="time">Update: -</p>
+            <article class="card span-2">
+              <p class="label">Ringkasan per nama</p>
+              <div id="ringkasan-pengirim" class="ringkasan-grid">
+                <p class="time">Memuat…</p>
+              </div>
             </article>
 
             <article class="card">
               <p class="section-title">Status</p>
               <p class="time">Sumber data: ESP32 via HTTP API</p>
-              <p class="time">Penyimpanan lokal: Browser localStorage</p>
+              <p class="time">Riwayat server: sampai 50 titik per nama</p>
               <p class="time">Interval refresh: 2 detik</p>
             </article>
 
-            <article class="card span-2">
-              <h3 class="section-title">Grafik Suhu (Line Chart)</h3>
-              <div class="chart-wrap">
-                <canvas id="suhuChart" height="300"></canvas>
-              </div>
-              <p id="chartInfo"></p>
-            </article>
+            <div id="grafik-per-nama"></div>
 
             <article class="card span-2">
-              <h3 class="section-title">Riwayat Suhu (localStorage)</h3>
+              <h3 class="section-title">Riwayat gabungan (semua nama)</h3>
               <ul id="riwayat"></ul>
             </article>
           </section>
         </main>
 
         <script>
-          const STORAGE_KEY_LAST = 'iot_suhu_terakhir';
-          const STORAGE_KEY_HISTORY = 'iot_suhu_riwayat';
-          const MAX_HISTORY = 10;
-          let chart;
+          const STORAGE_KEY_MULTI = 'iot_suhu_per_nama';
+          const COLORS = [
+            ['#3bc7c4', 'rgba(59, 199, 196, 0.18)'],
+            ['#c77bff', 'rgba(199, 123, 255, 0.18)'],
+            ['#ffb347', 'rgba(255, 179, 71, 0.18)'],
+            ['#7bff9e', 'rgba(123, 255, 158, 0.18)'],
+            ['#ff7e8a', 'rgba(255, 126, 138, 0.18)']
+          ];
+          let chartInstances = [];
 
-          function renderData(data) {
-            document.getElementById('suhu').innerText = data.suhu + " °C";
-            document.getElementById('waktu').innerText = "Update: " + data.waktu;
+          function escapeHtml(s) {
+            const div = document.createElement('div');
+            div.textContent = s == null ? '' : String(s);
+            return div.innerHTML;
           }
 
-          function renderRiwayat(riwayat) {
+          function renderRingkasan(pengirim) {
+            const el = document.getElementById('ringkasan-pengirim');
+            if (!pengirim || pengirim.length === 0) {
+              el.innerHTML = '<p class="time">Belum ada data. Kirim dari ESP32 dengan field nama_anda.</p>';
+              return;
+            }
+            el.innerHTML = pengirim.map(function (p) {
+              return (
+                '<div class="pengirim-mini">' +
+                '<p class="label">' + escapeHtml(p.nama_anda) + '</p>' +
+                '<p class="temp-small">' + escapeHtml(String(p.suhu)) + ' °C</p>' +
+                '<p class="time">Update: ' + escapeHtml(p.waktu || '-') + '</p>' +
+                '</div>'
+              );
+            }).join('');
+          }
+
+          function renderRiwayatGabungan(pengirim) {
             const ul = document.getElementById('riwayat');
             ul.innerHTML = '';
-
-            riwayat.forEach((item) => {
+            if (!pengirim || pengirim.length === 0) {
               const li = document.createElement('li');
-              li.innerHTML = '<span>' + item.waktu + '</span><span class="badge">' + item.suhu + ' °C</span>';
+              li.className = 'time';
+              li.textContent = 'Belum ada riwayat.';
               ul.appendChild(li);
+              return;
+            }
+            pengirim.forEach(function (p) {
+              (p.riwayat || []).forEach(function (item) {
+                const li = document.createElement('li');
+                li.innerHTML =
+                  '<span>' +
+                  escapeHtml(p.nama_anda) +
+                  ' · ' +
+                  escapeHtml(item.waktu || '-') +
+                  '</span><span class="badge">' +
+                  escapeHtml(String(item.suhu)) +
+                  ' °C</span>';
+                ul.appendChild(li);
+              });
             });
           }
 
-          function renderChart(riwayat) {
+          function destroyCharts() {
+            chartInstances.forEach(function (ch) {
+              ch.destroy();
+            });
+            chartInstances = [];
+          }
+
+          function renderChartsPerNama(pengirim) {
+            const root = document.getElementById('grafik-per-nama');
+            destroyCharts();
+            root.innerHTML = '';
+
             if (typeof Chart === 'undefined') {
-              document.getElementById('chartInfo').innerText = 'Chart.js gagal dimuat. Cek koneksi internet/browser.';
+              root.innerHTML =
+                '<article class="card span-2"><p id="chartInfo">Chart.js gagal dimuat. Cek koneksi internet/browser.</p></article>';
               return;
             }
 
-            const labels = [...riwayat].reverse().map((item) => item.waktu || '-');
-            const dataSuhu = [...riwayat].reverse().map((item) => Number(item.suhu) || 0);
+            if (!pengirim || pengirim.length === 0) {
+              root.innerHTML =
+                '<article class="card span-2"><p class="time">Belum ada grafik — tunggu data dari perangkat.</p></article>';
+              return;
+            }
 
-            if (!chart) {
-              const ctx = document.getElementById('suhuChart').getContext('2d');
-              chart = new Chart(ctx, {
+            pengirim.forEach(function (p, idx) {
+              const article = document.createElement('article');
+              article.className = 'card span-2';
+              const title = document.createElement('h3');
+              title.className = 'section-title';
+              title.textContent = 'Grafik suhu — ' + p.nama_anda;
+              const wrap = document.createElement('div');
+              wrap.className = 'chart-wrap';
+              wrap.style.height = '280px';
+              const canvas = document.createElement('canvas');
+              canvas.className = 'chart-canvas';
+              wrap.appendChild(canvas);
+              article.appendChild(title);
+              article.appendChild(wrap);
+              root.appendChild(article);
+
+              const riwayat = [].concat(p.riwayat || []).reverse();
+              const labels = riwayat.map(function (r) {
+                return r.waktu || '-';
+              });
+              const dataSuhu = riwayat.map(function (r) {
+                return Number(r.suhu) || 0;
+              });
+              const color = COLORS[idx % COLORS.length];
+              const ctx = canvas.getContext('2d');
+              const ch = new Chart(ctx, {
                 type: 'line',
                 data: {
-                  labels,
-                  datasets: [{
-                    label: 'Suhu (°C)',
-                    data: dataSuhu,
-                    borderColor: '#3bc7c4',
-                    backgroundColor: 'rgba(59, 199, 196, 0.18)',
-                    tension: 0.25,
-                    fill: true,
-                    pointRadius: 3,
-                    pointHoverRadius: 5
-                  }]
+                  labels: labels,
+                  datasets: [
+                    {
+                      label: 'Suhu (°C)',
+                      data: dataSuhu,
+                      borderColor: color[0],
+                      backgroundColor: color[1],
+                      tension: 0.25,
+                      fill: true,
+                      pointRadius: 3,
+                      pointHoverRadius: 5
+                    }
+                  ]
                 },
                 options: {
                   responsive: true,
@@ -303,42 +430,34 @@ app.get('/', (req, res) => {
                   }
                 }
               });
-              return;
-            }
-
-            chart.data.labels = labels;
-            chart.data.datasets[0].data = dataSuhu;
-            chart.update();
+              chartInstances.push(ch);
+            });
           }
 
           function simpanKeLocalStorage(data) {
-            localStorage.setItem(STORAGE_KEY_LAST, JSON.stringify(data));
-
-            const riwayatLama = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '[]');
-            const riwayatBaru = [data, ...riwayatLama].slice(0, MAX_HISTORY);
-            localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(riwayatBaru));
-
-            renderRiwayat(riwayatBaru);
-            renderChart(riwayatBaru);
+            try {
+              localStorage.setItem(STORAGE_KEY_MULTI, JSON.stringify(data));
+            } catch (e) {}
+            var list = data && data.pengirim ? data.pengirim : [];
+            renderRingkasan(list);
+            renderRiwayatGabungan(list);
+            renderChartsPerNama(list);
           }
 
           function loadDariLocalStorage() {
-            const dataTerakhir = JSON.parse(localStorage.getItem(STORAGE_KEY_LAST) || 'null');
-            const riwayat = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || '[]');
-
-            if (dataTerakhir) {
-              renderData(dataTerakhir);
-            }
-
-            renderRiwayat(riwayat);
-            renderChart(riwayat);
+            try {
+              var raw = localStorage.getItem(STORAGE_KEY_MULTI);
+              if (!raw) return;
+              var data = JSON.parse(raw);
+              if (data && data.pengirim) {
+                simpanKeLocalStorage(data);
+              }
+            } catch (e) {}
           }
 
           async function ambilDataSuhu() {
             const res = await fetch('/api/suhu');
             const data = await res.json();
-
-            renderData(data);
             simpanKeLocalStorage(data);
           }
 
