@@ -6,15 +6,15 @@
 #define DHTPIN 4
 #define DHTTYPE DHT22
 
-const char* ssid = "LoremIpsumDolor";
-const char* password = "Tryhackme";
+const char* ssid = "<WIFI ANDA>";
+const char* password = "<PASSWORD WIFI>";
 
 // GANTI IP INI!
-const char* serverUrl = "http://10.39.20.144:3000/api/suhu";
-const char* pingUrl   = "http://10.39.20.144:3000";
+const char* serverUrl = "http://72.61.143.70:3000/api/suhu";
+const char* pingUrl   = "http://72.61.143.70:3000";
 
 // Isi dengan nama Anda (field JSON: nama_anda)
-const char* nama_anda = "Nama Anda";
+const char* nama_anda = "Adhimas";
 
 // ===== INISIALISASI =====
 DHT dht(DHTPIN, DHTTYPE);
