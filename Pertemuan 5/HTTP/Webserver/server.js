@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
-const port = 3000;
+const port = Number(process.env.PORT) || 3000;
+const host = process.env.HOST || '0.0.0.0';
 
 // Middleware
 app.use(express.json());
@@ -470,6 +471,6 @@ app.get('/', (req, res) => {
   `);
 });
 
-app.listen(port, () => {
-  console.log("Server jalan di http://localhost:" + port);
+app.listen(port, host, () => {
+  console.log("Server jalan di http://" + host + ":" + port);
 });
