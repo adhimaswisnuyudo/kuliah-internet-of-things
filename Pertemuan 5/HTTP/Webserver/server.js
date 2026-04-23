@@ -247,7 +247,6 @@ app.get('/', (req, res) => {
         <main class="container">
           <header class="header">
             <h1 class="title">IoT Monitoring Dashboard</h1>
-            <p class="subtitle">Pemantauan suhu per pengirim (nama dari ESP32) — grafik terpisah per nama</p>
           </header>
 
           <section class="grid">
@@ -256,13 +255,6 @@ app.get('/', (req, res) => {
               <div id="ringkasan-pengirim" class="ringkasan-grid">
                 <p class="time">Memuat…</p>
               </div>
-            </article>
-
-            <article class="card">
-              <p class="section-title">Status</p>
-              <p class="time">Sumber data: ESP32 via HTTP API</p>
-              <p class="time">Riwayat server: sampai 50 titik per nama</p>
-              <p class="time">Interval refresh: 2 detik</p>
             </article>
 
             <div id="grafik-per-nama"></div>
@@ -358,81 +350,93 @@ app.get('/', (req, res) => {
               return;
             }
 
-            pengirim.forEach(function (p, idx) {
-              const article = document.createElement('article');
-              article.className = 'card span-2';
-              const title = document.createElement('h3');
-              title.className = 'section-title';
-              title.textContent = 'Grafik suhu — ' + p.nama_anda;
-              const wrap = document.createElement('div');
-              wrap.className = 'chart-wrap';
-              wrap.style.height = '280px';
-              const canvas = document.createElement('canvas');
-              canvas.className = 'chart-canvas';
-              wrap.appendChild(canvas);
-              article.appendChild(title);
-              article.appendChild(wrap);
-              root.appendChild(article);
+            const article = document.createElement('article');
+            article.className = 'card span-2';
+            const title = document.createElement('h3');
+            title.className = 'section-title';
+            title.textContent = 'Grafik suhu';
+            const wrap = document.createElement('div');
+            wrap.className = 'chart-wrap';
+            wrap.style.height = '320px';
+            const canvas = document.createElement('canvas');
+            canvas.className = 'chart-canvas';
+            wrap.appendChild(canvas);
+            article.appendChild(title);
+            article.appendChild(wrap);
+            root.appendChild(article);
 
-              const riwayat = [].concat(p.riwayat || []).reverse();
-              const labels = riwayat.map(function (r) {
-                return r.waktu || '-';
+            const riwayatPerPengirim = pengirim.map(function (p) {
+              return [].concat(p.riwayat || []).reverse();
+            });
+            const labelSet = new Set();
+            riwayatPerPengirim.forEach(function (riwayat) {
+              riwayat.forEach(function (r) {
+                labelSet.add(r.waktu || '-');
               });
-              const dataSuhu = riwayat.map(function (r) {
-                return Number(r.suhu) || 0;
+            });
+            const labels = Array.from(labelSet);
+            const datasets = pengirim.map(function (p, idx) {
+              const riwayat = riwayatPerPengirim[idx];
+              const dataByWaktu = {};
+              riwayat.forEach(function (r) {
+                dataByWaktu[r.waktu || '-'] = Number(r.suhu) || 0;
               });
               const color = COLORS[idx % COLORS.length];
-              const ctx = canvas.getContext('2d');
-              const ch = new Chart(ctx, {
-                type: 'line',
-                data: {
-                  labels: labels,
-                  datasets: [
-                    {
-                      label: 'Suhu (°C)',
-                      data: dataSuhu,
-                      borderColor: color[0],
-                      backgroundColor: color[1],
-                      tension: 0.25,
-                      fill: true,
-                      pointRadius: 3,
-                      pointHoverRadius: 5
+              return {
+                label: p.nama_anda,
+                data: labels.map(function (waktu) {
+                  return Object.prototype.hasOwnProperty.call(dataByWaktu, waktu)
+                    ? dataByWaktu[waktu]
+                    : null;
+                }),
+                borderColor: color[0],
+                backgroundColor: color[1],
+                tension: 0.25,
+                fill: true,
+                pointRadius: 3,
+                pointHoverRadius: 5
+              };
+            });
+
+            const ctx = canvas.getContext('2d');
+            const ch = new Chart(ctx, {
+              type: 'line',
+              data: {
+                labels: labels,
+                datasets: datasets
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    labels: {
+                      color: '#dce8ff'
                     }
-                  ]
+                  }
                 },
-                options: {
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      labels: {
-                        color: '#dce8ff'
-                      }
+                scales: {
+                  x: {
+                    ticks: {
+                      color: '#9fb0d8'
+                    },
+                    grid: {
+                      color: 'rgba(255, 255, 255, 0.08)'
                     }
                   },
-                  scales: {
-                    x: {
-                      ticks: {
-                        color: '#9fb0d8'
-                      },
-                      grid: {
-                        color: 'rgba(255, 255, 255, 0.08)'
-                      }
+                  y: {
+                    beginAtZero: false,
+                    ticks: {
+                      color: '#9fb0d8'
                     },
-                    y: {
-                      beginAtZero: false,
-                      ticks: {
-                        color: '#9fb0d8'
-                      },
-                      grid: {
-                        color: 'rgba(255, 255, 255, 0.08)'
-                      }
+                    grid: {
+                      color: 'rgba(255, 255, 255, 0.08)'
                     }
                   }
                 }
-              });
-              chartInstances.push(ch);
+              }
             });
+            chartInstances.push(ch);
           }
 
           function simpanKeLocalStorage(data) {
