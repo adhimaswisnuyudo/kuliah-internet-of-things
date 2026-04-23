@@ -1,0 +1,17 @@
+{
+  "name": "subscriber",
+  "version": "1.0.0",
+  "description": "",
+  "main": "subscriber.js",
+  "scripts": {
+    "start": "node subscriber.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "mqtt": "^5.15.1"
+  }
+}

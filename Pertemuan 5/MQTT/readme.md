@@ -1,98 +1,92 @@
-# 📡 Pertemuan 5 – MQTT IoT (DHT22 Monitoring)
+# Pertemuan 5 - MQTT IoT (DHT22)
 
-Pada praktikum ini, kita akan mengimplementasikan komunikasi **Internet of Things (IoT)** menggunakan protokol **MQTT (Message Queuing Telemetry Transport)**.
+Implementasi ini setara versi HTTP, tetapi komunikasi data suhu memakai MQTT.
+Tidak ada webserver di skenario ini.
 
-ESP32 membaca data suhu dari sensor **DHT22**, kemudian mengirimkan data ke **MQTT Broker (HiveMQ)** dan dapat dimonitor secara real-time melalui client (browser / aplikasi).
+Arsitektur:
 
----
+DHT22 -> ESP32 -> WiFi -> MQTT Broker -> Subscriber/Client
 
-## 🎯 Tujuan
+## Broker pakai apa?
 
-- Memahami konsep publish-subscribe pada MQTT
-- Menghubungkan ESP32 ke MQTT Broker
-- Mengirim data sensor secara real-time
-- Monitoring data melalui MQTT client
+Untuk praktikum, paling cepat pakai broker publik:
 
----
+- Broker: `broker.hivemq.com`
+- Port: `1883` (tanpa TLS, paling simpel untuk uji awal)
+- Topic contoh: `iot/digitech-adhimas/suhu`
 
-## 🧠 Arsitektur Sistem
+Catatan:
 
-DHT22 → ESP32 → WiFi → MQTT Broker → Client (Web / Desktop)
+- Broker publik cocok untuk demo/lab.
+- Produksi disarankan pakai broker sendiri (Mosquitto/EMQX) + autentikasi + TLS.
 
----
+## File yang disediakan
 
-## 🔌 Hardware
+- Publisher ESP32: `Board/dht22_mqtt.ino`
+- Subscriber Node.js (terminal): `Subscriber/subscriber.js`
 
-- ESP32 / Wemos D1 R32
-- Sensor DHT22
+## Langkah-langkah
 
----
+### 1) Upload kode ESP32
 
-## ⚙️ Software
+1. Buka `Board/dht22_mqtt.ino` di Arduino IDE.
+2. Install library:
+   - `PubSubClient`
+   - `DHT sensor library` (Adafruit)
+3. Isi konfigurasi:
+   - `ssid`
+   - `password`
+   - `nama_anda`
+4. (Opsional) Ganti topic jika perlu:
+   - `topic_suhu = "iot/digitech-adhimas/suhu"`
+5. Upload ke board ESP32.
 
-- Arduino IDE
-- MQTT Broker: HiveMQ (public broker)
-- MQTT Client:
-  - HiveMQ Web Client (browser)
-  - MQTT Explorer (desktop)
+Setelah konek, ESP32 akan publish JSON tiap 5 detik dengan format:
 
-Library:
-- WiFi.h
-- PubSubClient.h
-- DHT (Adafruit)
+```json
+{"nama_anda":"Nama Anda","suhu":29.12,"timestamp":123456}
+```
 
----
+### 2) Jalankan subscriber (tanpa webserver)
 
-## 🚀 Langkah Praktikum
+Masuk ke folder:
 
-### 1. Setup MQTT Broker
+```bash
+cd "Pertemuan 5/MQTT/Subscriber"
+```
 
-Gunakan broker publik:
+Install dependency (sekali saja):
 
-broker.hivemq.com
+```bash
+npm install
+```
 
-broker.hivemq.com
+Jalankan subscriber:
 
+```bash
+npm start
+```
 
----
+### 3) (Opsional) Ganti broker/topic via environment variable
 
-### 2. Setup MQTT Client (Monitoring)
+```bash
+MQTT_URL="mqtt://broker.hivemq.com:1883" MQTT_TOPIC="iot/digitech-adhimas/suhu" npm start
+```
 
-#### Opsi 1 – Browser (HiveMQ Web Client)
+## Verifikasi sukses
 
-Buka:
+- Serial Monitor ESP32 menunjukkan `MQTT Connected` dan `Publish ... BERHASIL`.
+- Terminal subscriber menampilkan data masuk, contoh:
 
-https://www.hivemq.com/demos/websocket-client/
+`[10:22:11] iot/digitech-adhimas/suhu | Adhimas | 28.7 C`
 
-Konfigurasi:
+## Troubleshooting cepat
 
-- Host: `broker.hivemq.com`
-- Port: `8884`
-- SSL: ON
-- Path: `/mqtt`
-
-Klik **Connect**
-
----
-
-#### Opsi 2 – MQTT Explorer (Recommended)
-
-Install aplikasi:
-
-MQTT Explorer
-
-Konfigurasi:
-
-- Host: `broker.hivemq.com`
-- Port: `1883`
-
-Klik **Connect**
-
----
-
-### 3. Subscribe Topic
-
-Gunakan topic:
-
-iot/digitech-adhimas/suhu
+- Tidak ada data masuk:
+  - Pastikan topic publisher dan subscriber sama persis.
+  - Pastikan WiFi ESP32 tersambung.
+  - Coba topic unik (mis. tambah nama/kelas) agar tidak bercampur dengan user lain.
+- Gagal konek broker:
+  - Cek jaringan, kadang port 1883 diblokir jaringan kampus/kantor.
+  - Coba jaringan lain/hotspot.
 
