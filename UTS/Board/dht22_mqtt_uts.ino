@@ -25,22 +25,19 @@
 #define DHTPIN 4
 
 // ISI: jeda antar pengiriman data, dalam SATUAN MILLISECOND (ms)
-// contoh: 5000 = kirim setiap 5 detik; jangan terlalu kecil agar stabil
-const unsigned long DELAY_KIRIM_MS = 5000;
+const unsigned long DELAY_KIRIM_MS = 10000;
 
 // ISI: SSID dan password WiFi (pastikan 2,4 GHz jika ESP32 tidak support 5 GHz)
 const char* ssid = "<WIFI_SSID>";
 const char* password = "<WIFI_PASSWORD>";
 
-// ISI: topic MQTT untuk menerbitkan (publish) data suhu
-// ganti segmen terakhir dengan nama/ID Anda (hindari spasi), contoh: digitech/uts-iot/adhimas
-const char* topic = "digitech/uts-iot/ganti_nama";
+const char* topic = "digitech/uts-iot/NPM Anda";
 
-// ISI: nama Anda / identitas board (muncul di field JSON: "nama")
+// ISI: nama Anda 
 const char* nama = "<Nama Anda>";
 
 // ---------------------------------------------------------------------------
-// Opsi broker MQTT (biasanya panggil: ganti bila dosen / server lain)
+// Opsi broker MQTT 
 // ---------------------------------------------------------------------------
 const char* mqtt_server = "broker.hivemq.com";
 const int mqtt_port = 1883;
