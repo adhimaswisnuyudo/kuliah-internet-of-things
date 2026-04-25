@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node serve.mjs",
     "build": "vite build",
-    "start": "cross-env NODE_ENV=production node serve.mjs",
+    "start": "node scripts/ensure-dist.mjs && cross-env NODE_ENV=production node serve.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
