@@ -1,7 +1,7 @@
 const mqtt = require("mqtt");
 
 const brokerUrl = process.env.MQTT_URL || "mqtt://broker.hivemq.com:1883";
-const topic = process.env.MQTT_TOPIC || "iot/digitech-adhimas/suhu";
+const topic = process.env.MQTT_TOPIC || "iot/digitech-ridwan/suhu";
 
 const client = mqtt.connect(brokerUrl, {
   reconnectPeriod: 2000,
